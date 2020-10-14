@@ -233,11 +233,13 @@ type blockManager struct {
 	minRetargetTimespan int64 // target timespan / adjustment factor
 	maxRetargetTimespan int64 // target timespan * adjustment factor
 	blocksPerRetarget   int32 // target timespan / target time per block
+
+	notifications *Notifications
 }
 
 // newBlockManager returns a new bitcoin block manager.  Use Start to begin
 // processing asynchronous block and inv updates.
-func newBlockManager(cfg *blockManagerCfg) (*blockManager, error) {
+func newBlockManager(cfg *blockManagerCfg, notifications *Notifications) (*blockManager, error) {
 
 	targetTimespan := int64(cfg.ChainParams.TargetTimespan / time.Second)
 	targetTimePerBlock := int64(cfg.ChainParams.TargetTimePerBlock / time.Second)
@@ -263,6 +265,7 @@ func newBlockManager(cfg *blockManagerCfg) (*blockManager, error) {
 		blocksPerRetarget:   int32(targetTimespan / targetTimePerBlock),
 		minRetargetTimespan: targetTimespan / adjustmentFactor,
 		maxRetargetTimespan: targetTimespan * adjustmentFactor,
+		notifications:       notifications,
 	}
 
 	// Next we'll create the two signals that goroutines will use to wait
@@ -334,6 +337,7 @@ func (b *blockManager) Start() {
 		}
 
 		log.Debug("Peer connected, starting cfHandler.")
+
 		b.cfHandler()
 	}()
 }
@@ -408,6 +412,7 @@ func (b *blockManager) handleNewPeerMsg(peers *list.List, sp *ServerPeer) {
 	// Add the peer as a candidate to sync from.
 	peers.PushBack(sp)
 
+	b.peerConnected(peers.Len(), sp.Addr())
 	// If we're current with our sync peer and the new peer is advertising
 	// a higher block than the newest one we know of, request headers from
 	// the new peer.
@@ -460,7 +465,7 @@ func (b *blockManager) handleDonePeerMsg(peers *list.List, sp *ServerPeer) {
 	}
 
 	log.Infof("Lost peer %s", sp)
-
+	b.peerDisconnected(peers.Len(), sp.Addr())
 	// Attempt to find a new peer to sync from if the quitting peer is the
 	// sync peer.  Also, reset the header state.
 	if b.SyncPeer() != nil && b.SyncPeer() == sp {
@@ -510,6 +515,9 @@ func (b *blockManager) cfHandler() {
 		lastCp = blockCheckpoints[len(blockCheckpoints)-1]
 	}
 
+	b.fetchMissingCfiltersStart()
+	beginHeight := b.filterHeaderTip
+
 waitForHeaders:
 	// We'll wait until the main header sync is either finished or the
 	// filter headers are lagging at least a checkpoint interval behind the
@@ -554,10 +562,12 @@ waitForHeaders:
 	lastHash := lastHeader.BlockHash()
 
 	b.newFilterHeadersMtx.RLock()
+	// TODO send notifications here
 	log.Infof("Starting cfheaders sync from (block_height=%v, "+
 		"block_hash=%v) to (block_height=%v, block_hash=%v)",
 		b.filterHeaderTip, b.filterHeaderTipHash, lastHeight,
 		lastHeader.BlockHash())
+	b.fetchMissingCfiltersProgress(int32(beginHeight), int32(lastHeight), lastHeader.Timestamp.Unix())
 	b.newFilterHeadersMtx.RUnlock()
 
 	fType := wire.GCSFilterRegular
@@ -671,6 +681,7 @@ waitForHeaders:
 
 	log.Infof("Fully caught up with cfheaders at height "+
 		"%v, waiting at tip for new blocks", lastHeight)
+	b.fetchMissingCfiltersFinished()
 
 	// Now that we've been fully caught up to the tip of the current header
 	// chain, we'll wait here for a signal that more blocks have been
