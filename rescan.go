@@ -420,7 +420,7 @@ func rescan(chain ChainSource, options ...RescanOption) error {
 	// until we receive a notification for a block with the rescan's
 	// starting height.
 	if bestBlock.Height < curStamp.Height {
-		log.Debugf("Waiting to catch up to the rescan start height=%d "+
+		log.Infof("Waiting to catch up to the rescan start height=%d "+
 			"from height=%d", curStamp.Height, bestBlock.Height)
 
 		blockSubscription, err := chain.Subscribe(
@@ -460,6 +460,7 @@ func rescan(chain ChainSource, options ...RescanOption) error {
 
 			case <-ro.quit:
 				blockSubscription.Cancel()
+				log.Info("Rescan exit 1")
 				return ErrRescanExit
 			}
 		}
@@ -478,7 +479,7 @@ func rescan(chain ChainSource, options ...RescanOption) error {
 		}
 	}
 
-	log.Debugf("Starting rescan from known block %d (%s)", curStamp.Height,
+	log.Infof("Starting rescan from known block %d (%s)", curStamp.Height,
 		curStamp.Hash)
 
 	// Compare the start time to the start block. If the start time is
@@ -653,6 +654,7 @@ rescanLoop:
 		if curStamp.Hash == ro.endBlock.Hash ||
 			(ro.endBlock.Height > 0 &&
 				curStamp.Height == ro.endBlock.Height) {
+			log.Info("Rescan has reached end")
 			return nil
 		}
 
@@ -668,6 +670,7 @@ rescanLoop:
 			select {
 
 			case <-ro.quit:
+				log.Info("Rescan exit 3")
 				return ErrRescanExit
 
 			// An update mesage has just come across, if it points
@@ -1284,8 +1287,10 @@ func (r *Rescan) WaitForShutdown() {
 // according to the specified rescan options.
 func (r *Rescan) Start() <-chan error {
 	errChan := make(chan error, 1)
+	log.Info("Neutrino is rescanning")
 
 	if !atomic.CompareAndSwapUint32(&r.started, 0, 1) {
+		log.Info("Neutrino is already rescanning")
 		errChan <- fmt.Errorf("Rescan already started")
 		return errChan
 	}
@@ -1295,8 +1300,9 @@ func (r *Rescan) Start() <-chan error {
 		defer r.wg.Done()
 
 		rescanArgs := append(r.options, updateChan(r.updateChan))
+		log.Info("Calling rescan function")
 		err := rescan(r.chain, rescanArgs...)
-
+		log.Info("Rescan function has returned")
 		close(r.running)
 
 		r.errMtx.Lock()
@@ -1373,6 +1379,7 @@ func (r *Rescan) Update(options ...UpdateOption) error {
 	select {
 	case r.updateChan <- uo:
 	case <-ro.quit:
+		log.Info("Rescan exit 2")
 		return ErrRescanExit
 
 	case <-r.running:

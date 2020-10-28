@@ -638,22 +638,21 @@ type ChainService struct {
 	nameResolver func(string) ([]net.IP, error)
 	dialer       func(net.Addr) (net.Conn, error)
 
-	notifications *Notifications
+	notifications Notifications
 }
 
-type Notifications struct {
-	Synced                       func(sync bool)
-	PeerConnected                func(peerCount int32, addr string)
-	PeerDisconnected             func(peerCount int32, addr string)
-	FetchMissingCFiltersStarted  func()
-	FetchMissingCFiltersProgress func(startCFiltersHeight, endCFiltersHeight int32, endCFiltersTime int64)
-	FetchMissingCFiltersFinished func()
+type Notifications interface {
+	PeerConnected(peerCount int32, addr string)
+	PeerDisconnected(peerCount int32, addr string)
+	FetchMissingCFiltersStarted()
+	FetchMissingCFiltersProgress(startCFiltersHeight, endCFiltersHeight int32, endCFiltersTime int64)
+	FetchMissingCFiltersFinished()
 }
 
 // NewChainService returns a new chain service configured to connect to the
 // bitcoin network type specified by chainParams.  Use start to begin syncing
 // with peers.
-func NewChainService(cfg Config, notifications *Notifications) (*ChainService, error) {
+func NewChainService(cfg Config, notifications Notifications) (*ChainService, error) {
 	// First, we'll sort out the methods that we'll use to established
 	// outbound TCP connections, as well as perform any DNS queries.
 	//

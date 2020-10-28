@@ -234,12 +234,12 @@ type blockManager struct {
 	maxRetargetTimespan int64 // target timespan * adjustment factor
 	blocksPerRetarget   int32 // target timespan / target time per block
 
-	notifications *Notifications
+	notifications Notifications
 }
 
 // newBlockManager returns a new bitcoin block manager.  Use Start to begin
 // processing asynchronous block and inv updates.
-func newBlockManager(cfg *blockManagerCfg, notifications *Notifications) (*blockManager, error) {
+func newBlockManager(cfg *blockManagerCfg, notifications Notifications) (*blockManager, error) {
 
 	targetTimespan := int64(cfg.ChainParams.TargetTimespan / time.Second)
 	targetTimePerBlock := int64(cfg.ChainParams.TargetTimePerBlock / time.Second)

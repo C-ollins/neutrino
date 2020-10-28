@@ -59,50 +59,34 @@ type forAllPeersMsg struct {
 	closure func(*ServerPeer)
 }
 
-// synced checks the atomic that controls wallet syncness and if previously
-// unsynced, updates to synced and notifies the callback, if set.
-func (b *blockManager) synced() {
-	if b.notifications != nil && b.notifications.Synced != nil {
-		b.notifications.Synced(true)
-	}
-}
-
-// unsynced checks the atomic that controls wallet syncness and if previously
-// synced, updates to unsynced and notifies the callback, if set.
-func (b *blockManager) unsynced() {
-	if b.notifications != nil && b.notifications.Synced != nil {
-		b.notifications.Synced(false)
-	}
-}
-
 // peerConnected updates the notification for peer count, if set.
 func (b *blockManager) peerConnected(remotesCount int, addr string) {
-	if b.notifications != nil && b.notifications.PeerConnected != nil {
+	if b.notifications != nil {
 		b.notifications.PeerConnected(int32(remotesCount), addr)
 	}
 }
 
 // peerDisconnected updates the notification for peer count, if set.
 func (b *blockManager) peerDisconnected(remotesCount int, addr string) {
-	if b.notifications != nil && b.notifications.PeerDisconnected != nil {
+	if b.notifications != nil {
 		b.notifications.PeerDisconnected(int32(remotesCount), addr)
 	}
 }
 
 func (b *blockManager) fetchMissingCfiltersStart() {
-	if b.notifications != nil && b.notifications.FetchMissingCFiltersStarted != nil {
+	if b.notifications != nil {
 		b.notifications.FetchMissingCFiltersStarted()
 	}
 }
 
 func (b *blockManager) fetchMissingCfiltersProgress(startMissingCFilterHeight, endMissinCFilterHeight int32, endCFiltersTime int64) {
-	if b.notifications != nil && b.notifications.FetchMissingCFiltersProgress != nil {
+	if b.notifications != nil {
 		b.notifications.FetchMissingCFiltersProgress(startMissingCFilterHeight, endMissinCFilterHeight, endCFiltersTime)
 	}
 }
 
 func (b *blockManager) fetchMissingCfiltersFinished() {
-	if b.notifications != nil && b.notifications.FetchMissingCFiltersFinished != nil {
+	if b.notifications != nil {
 		b.notifications.FetchMissingCFiltersFinished()
 	}
 }
